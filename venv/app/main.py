@@ -28,6 +28,9 @@ def detect_text(bucket, filename):
     annotations = text_detection_response.text_annotations
     if len(annotations) > 0:
         text = annotations[0].description
+        doc = nlp(text)
+        nouns = [chunk.text for chunk in doc.noun_chunks]
+        verbs = [token.lemma_ for token in doc if token.pos_ == "VERB"]
     else:
         text = ''
     print('Extracted text {} from image ({} chars).'.format(text, len(text)))
@@ -36,7 +39,8 @@ def detect_text(bucket, filename):
     topic_path = publisher.topic_path(project_id, topic_name)
 
     message = {
-        'text': text,
+        'nouns': nouns,
+        'verbs': verbs,
         'filename': filename,
     }
 
@@ -81,9 +85,6 @@ def save_result(event, context):
         message = json.loads(message_data)
     else:
         raise ValueError('Data sector is missing in the Pub/Sub message.')
-
-    text = validate_message(message, 'text')
-    filename = validate_message(message, 'filename')
 
     print('Received request to save file {}.'.format(filename))
 

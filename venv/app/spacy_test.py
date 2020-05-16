@@ -26,8 +26,6 @@ def stream_handler(message):
 
     steps = procedure.split(".")
 
-    
-
     for step in steps:
         doc = nlp(procedure)
 
