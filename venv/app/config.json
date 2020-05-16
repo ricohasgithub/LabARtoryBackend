@@ -1,0 +1,5 @@
+{
+    "GCP_PROJECT": "labartory",
+    "RESULT_TOPIC": "SPACY",
+    "RESULT_BUCKET": "labartory_text_bucket"
+}
