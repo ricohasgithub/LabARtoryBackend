@@ -12,7 +12,7 @@ vision_client = vision.ImageAnnotatorClient()
 publisher = pubsub_v1.PublisherClient()
 storage_client = storage.Client()
 
-# nlp = spacy.load("en_core_web_md")
+nlp = spacy.load("en_core_web_md")
 
 project_id = os.environ['GCP_PROJECT']
 
@@ -63,15 +63,16 @@ def detect_text(bucket, filename):
     print(len(annotations))
     if len(annotations) > 0:
         text = annotations[0].description
-        # print("LOADING SPACY")
-        # nlp = spacy.load("en_core_web_sm")
-        # print("LOADED SPACY")
-        # doc = nlp(text)
-        # print("CONVERTED")
-        # nouns = [chunk.text for chunk in doc.noun_chunks]
-        # verbs = [token.lemma_ for token in doc if token.pos_ == "VERB"]
-        # print(nouns)
-        # print(verbs)
+        print("LOADING SPACY")
+        nlp = spacy.load("en_core_web_sm")
+        print("LOADED SPACY")
+        doc = nlp(text)
+        print("CONVERTED")
+        nouns = [chunk.text for chunk in doc.noun_chunks]
+        verbs = [token.lemma_ for token in doc if token.pos_ == "VERB"]
+        print(nouns)
+        print(verbs)
+        text = nouns + verbs
     else:
         text = ''
     print('Extracted text {} from image ({} chars).'.format(text, len(text)))
@@ -79,16 +80,15 @@ def detect_text(bucket, filename):
     topic_name = os.environ['RESULT_TOPIC']
     topic_path = publisher.topic_path(project_id, topic_name)
 
-    # message = {
-    #     'nouns': nouns,
-    #     'verbs': verbs,
-    #     'filename': filename,
-    # }
-
     message = {
         'text': text,
         'filename': filename,
     }
+
+    # message = {
+    #     'text': text,
+    #     'filename': filename,
+    # }
 
     message_data = json.dumps(message).encode('utf-8')
     future = publisher.publish(topic_path, data=message_data)
