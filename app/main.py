@@ -12,25 +12,66 @@ vision_client = vision.ImageAnnotatorClient()
 publisher = pubsub_v1.PublisherClient()
 storage_client = storage.Client()
 
+# nlp = spacy.load("en_core_web_md")
+
 project_id = os.environ['GCP_PROJECT']
 
-nlp = spacy.load("en_core_web_sm")
+# [START functions_ocr_detect]
+# def detect_text(bucket, filename):
+#     print("FUNCTION TEXT CALLED")
+#     print('Looking for text in image {}'.format(filename))
+
+#     text_detection_response = vision_client.text_detection({
+#         'source': {'image_uri': 'gs://{}/{}'.format(bucket, filename)}
+#     })
+#     annotations = text_detection_response.text_annotations
+#     print(len(annotations))
+#     if len(annotations) > 0:
+#         text = annotations[0].description
+#         doc = nlp(text)
+#         nouns = [chunk.text for chunk in doc.noun_chunks]
+#         verbs = [token.lemma_ for token in doc if token.pos_ == "VERB"]
+#         print(nouns)
+#         print(verbs)
+#     else:
+#         text = ''
+#     print('Extracted text {} from image ({} chars).'.format(text, len(text)))
+
+#     topic_name = os.environ['RESULT_TOPIC']
+#     topic_path = publisher.topic_path(project_id, topic_name)
+
+#     message = {
+#         'nouns': nouns,
+#         'verbs': verbs,
+#         'filename': filename,
+#     }
+
+#     message_data = json.dumps(message).encode('utf-8')
+#     topic_path = publisher.topic_path(project_id, topic_name)
+#     future = publisher.publish(topic_path, data=message_data)
+#     future.result()
 
 # [START functions_ocr_detect]
 def detect_text(bucket, filename):
+    print("FUNCTION TEXT CALLED")
     print('Looking for text in image {}'.format(filename))
-
-    futures = []
 
     text_detection_response = vision_client.text_detection({
         'source': {'image_uri': 'gs://{}/{}'.format(bucket, filename)}
     })
     annotations = text_detection_response.text_annotations
+    print(len(annotations))
     if len(annotations) > 0:
         text = annotations[0].description
-        doc = nlp(text)
-        nouns = [chunk.text for chunk in doc.noun_chunks]
-        verbs = [token.lemma_ for token in doc if token.pos_ == "VERB"]
+        # print("LOADING SPACY")
+        # nlp = spacy.load("en_core_web_sm")
+        # print("LOADED SPACY")
+        # doc = nlp(text)
+        # print("CONVERTED")
+        # nouns = [chunk.text for chunk in doc.noun_chunks]
+        # verbs = [token.lemma_ for token in doc if token.pos_ == "VERB"]
+        # print(nouns)
+        # print(verbs)
     else:
         text = ''
     print('Extracted text {} from image ({} chars).'.format(text, len(text)))
@@ -38,14 +79,18 @@ def detect_text(bucket, filename):
     topic_name = os.environ['RESULT_TOPIC']
     topic_path = publisher.topic_path(project_id, topic_name)
 
+    # message = {
+    #     'nouns': nouns,
+    #     'verbs': verbs,
+    #     'filename': filename,
+    # }
+
     message = {
-        'nouns': nouns,
-        'verbs': verbs,
+        'text': text,
         'filename': filename,
     }
 
     message_data = json.dumps(message).encode('utf-8')
-    topic_path = publisher.topic_path(project_id, topic_name)
     future = publisher.publish(topic_path, data=message_data)
     future.result()
 
@@ -70,9 +115,10 @@ def process_image(file, context):
     Returns:
         None; the output is written to stdout and Stackdriver Logging
     """
+    print("FUNCTION IMAGE CALLED")
     bucket = validate_message(file, 'bucket')
     name = validate_message(file, 'name')
-
+    print("ACTIVATE TEXT DETECTION")
     detect_text(bucket, name)
 
     print('File {} processed.'.format(file['name']))
@@ -81,22 +127,31 @@ def process_image(file, context):
 # [START functions_ocr_save]
 def save_result(event, context):
     if event.get('data'):
+        print("LOAD")
         message_data = base64.b64decode(event['data']).decode('utf-8')
+        print(message_data)
         message = json.loads(message_data)
+        print(message)
     else:
         raise ValueError('Data sector is missing in the Pub/Sub message.')
+    
+    print("VALIDATING MESSAGE")
+    print(message)
+    text = validate_message(message, 'text')
+    filename = validate_message(message, 'filename')
 
     print('Received request to save file {}.'.format(filename))
 
     bucket_name = os.environ['RESULT_BUCKET']
-    result_filename = '{}.txt'.format(filename)
+    result_filename = filename + '.txt'
+    print(result_filename)
     bucket = storage_client.get_bucket(bucket_name)
     blob = bucket.blob(result_filename)
 
     print('Saving result to {} in bucket {}.'.format(result_filename,
                                                      bucket_name))
 
-    blob.upload_from_string(text)
+    blob.upload_from_string(message)
 
     print('File saved.')
 # [END functions_ocr_save]
