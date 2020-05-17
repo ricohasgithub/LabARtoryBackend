@@ -145,13 +145,16 @@ def save_result(event, context):
     bucket_name = os.environ['RESULT_BUCKET']
     result_filename = filename + '.txt'
     print(result_filename)
+    print(bucket_name)
     bucket = storage_client.get_bucket(bucket_name)
+    print("BUCKETS LOADED")
     blob = bucket.blob(result_filename)
+    print("BLOB DEFINED")
 
     print('Saving result to {} in bucket {}.'.format(result_filename,
                                                      bucket_name))
 
-    blob.upload_from_string(message)
+    blob.upload_from_string(text)
 
     print('File saved.')
 # [END functions_ocr_save]
